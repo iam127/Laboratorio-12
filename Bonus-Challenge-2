@@ -1,0 +1,308 @@
+from datetime import datetime
+from typing import List, Tuple, Optional
+
+class ProductNode:
+    def __init__(self, sku: str, quantity: int):
+        self.sku = sku               
+        self.quantity = quantity    
+        self.last_update = datetime.now() 
+        self.left = None
+        self.right = None
+        self.height = 1             
+
+class SuperMarketAVL:
+    def __init__(self):
+        self.root = None
+    
+    def get_height(self, node):
+        """Get height of node (0 if None)"""
+        if not node:
+            return 0
+        return node.height
+    
+    def get_balance(self, node):
+        """Get balance factor of node"""
+        if not node:
+            return 0
+        return self.get_height(node.left) - self.get_height(node.right)
+    
+    def update_height(self, node):
+        """Update height of node based on children"""
+        if node:
+            node.height = 1 + max(self.get_height(node.left), self.get_height(node.right))
+    
+    def rotate_right(self, y):
+        """Right rotation for AVL balancing"""
+        x = y.left
+        T2 = x.right
+        
+        x.right = y
+        y.left = T2
+        
+        self.update_height(y)
+        self.update_height(x)
+        
+        return x
+    
+    def rotate_left(self, x):
+        """Left rotation for AVL balancing"""
+        y = x.right
+        T2 = y.left
+        
+        y.left = x
+        x.right = T2
+        
+        self.update_height(x)
+        self.update_height(y)
+        
+        return y
+    
+    def insert_product(self, root, sku: str, quantity: int):
+        """➕ Add new product or update quantity if exists, then rebalance."""
+        if not root:
+            return ProductNode(sku, quantity)
+        
+        if sku < root.sku:
+            root.left = self.insert_product(root.left, sku, quantity)
+        elif sku > root.sku:
+            root.right = self.insert_product(root.right, sku, quantity)
+        else:
+            root.quantity = quantity
+            root.last_update = datetime.now()
+            return root
+        
+        self.update_height(root)
+        
+        balance = self.get_balance(root)
+        
+        if balance > 1 and sku < root.left.sku:
+            return self.rotate_right(root)
+        
+        if balance < -1 and sku > root.right.sku:
+            return self.rotate_left(root)
+        
+        if balance > 1 and sku > root.left.sku:
+            root.left = self.rotate_left(root.left)
+            return self.rotate_right(root)
+        
+        if balance < -1 and sku < root.right.sku:
+            root.right = self.rotate_right(root.right)
+            return self.rotate_left(root)
+        
+        return root
+    
+    def find_min_node(self, root):
+        """Find node with minimum SKU value"""
+        while root.left:
+            root = root.left
+        return root
+    
+    def delete_product(self, root, sku: str):
+        """🗑️ Remove product when quantity = 0, then rebalance."""
+        if not root:
+            return root
+        
+        if sku < root.sku:
+            root.left = self.delete_product(root.left, sku)
+        elif sku > root.sku:
+            root.right = self.delete_product(root.right, sku)
+        else:
+            if not root.left or not root.right:
+                temp = root.left if root.left else root.right
+                
+                if not temp:  
+                    temp = root
+                    root = None
+                else:  
+                    root = temp
+            else:
+                temp = self.find_min_node(root.right)
+                root.sku = temp.sku
+                root.quantity = temp.quantity
+                root.last_update = temp.last_update
+                root.right = self.delete_product(root.right, temp.sku)
+        
+        if not root:
+            return root
+        
+        self.update_height(root)
+        
+        balance = self.get_balance(root)
+        
+        if balance > 1 and self.get_balance(root.left) >= 0:
+            return self.rotate_right(root)
+        
+        if balance > 1 and self.get_balance(root.left) < 0:
+            root.left = self.rotate_left(root.left)
+            return self.rotate_right(root)
+        
+        if balance < -1 and self.get_balance(root.right) <= 0:
+            return self.rotate_left(root)
+        
+        if balance < -1 and self.get_balance(root.right) > 0:
+            root.right = self.rotate_right(root.right)
+            return self.rotate_left(root)
+        
+        return root
+    
+    def search_product(self, root, sku: str):
+        """🔍 Search for a product by SKU"""
+        if not root or root.sku == sku:
+            return root
+        
+        if sku < root.sku:
+            return self.search_product(root.left, sku)
+        else:
+            return self.search_product(root.right, sku)
+    
+    def update_product(self, root, sku: str, delta: int):
+        """🔄 Increase/decrease quantity by delta; if zero or negative, delete."""
+        node = self.search_product(root, sku)
+        if not node:
+            print(f"⚠️ Product {sku} not found!")
+            return root
+        
+        new_quantity = node.quantity + delta
+        
+        if new_quantity <= 0:
+            print(f"🗑️ Removing {sku} (quantity became {new_quantity})")
+            return self.delete_product(root, sku)
+        else:
+            node.quantity = new_quantity
+            node.last_update = datetime.now()
+            print(f"🔄 Updated {sku}: quantity = {new_quantity}")
+            return root
+    
+    def range_query(self, root, min_sku: str, max_sku: str, result: List = None):
+        """🔍 List all SKUs in [min_sku, max_sku] in sorted order."""
+        if result is None:
+            result = []
+        
+        if not root:
+            return result
+        
+        if root.sku > min_sku:
+            self.range_query(root.left, min_sku, max_sku, result)
+        
+        if min_sku <= root.sku <= max_sku:
+            result.append((root.sku, root.quantity, root.last_update))
+        
+        if root.sku < max_sku:
+            self.range_query(root.right, min_sku, max_sku, result)
+        
+        return result
+    
+    def inorder(self, root):
+        """📜 In-order traversal printing SKU and quantity."""
+        if root:
+            self.inorder(root.left)
+            print(f"{root.sku}({root.quantity})", end=" ")
+            self.inorder(root.right)
+    
+    def get_low_stock_products(self, root, threshold: int, result: List = None):
+        """⚠️ Get products with stock below threshold"""
+        if result is None:
+            result = []
+        
+        if not root:
+            return result
+        
+        self.get_low_stock_products(root.left, threshold, result)
+        
+        if root.quantity < threshold:
+            result.append((root.sku, root.quantity))
+        
+        self.get_low_stock_products(root.right, threshold, result)
+        
+        return result
+
+# 🧪 Test cases
+def test_supermarket_inventory():
+    print("🛒 SuperMarket Inventory Tracker - Plaza Vea System")
+    print("=" * 60)
+    
+    sm = SuperMarketAVL()
+    
+    print("\n🧪 Test 1: Inserting products...")
+    products = [
+        ("SKU100-Rice", 50),
+        ("SKU200-Beans", 30),
+        ("SKU150-Quinoa", 20),
+        ("SKU250-Oil", 15),
+        ("SKU175-Maize", 40)
+    ]
+    
+    for sku, qty in products:
+        sm.root = sm.insert_product(sm.root, sku, qty)
+        print(f"✅ Added {sku} with quantity {qty}")
+    
+    print("\n📋 Current inventory (sorted by SKU):")
+    sm.inorder(sm.root)
+    print()
+    
+    print("\n🧪 Test 2: Processing sale - 10 units of Quinoa...")
+    sm.root = sm.update_product(sm.root, "SKU150-Quinoa", -10)
+    
+    print("\n📋 Inventory after sale:")
+    sm.inorder(sm.root)
+    print()
+    
+    print("\n🧪 Test 3: Selling all remaining beans...")
+    sm.root = sm.update_product(sm.root, "SKU200-Beans", -30)
+    
+    print("\n📋 Inventory after beans sold out:")
+    sm.inorder(sm.root)
+    print()
+    
+    print("\n🧪 Test 4: Range query between SKU120 and SKU200")
+    range_results = sm.range_query(sm.root, "SKU120", "SKU200")
+    print("🔍 Products in range:")
+    for sku, qty, last_update in range_results:
+        print(f"  - {sku}: {qty} units (updated: {last_update.strftime('%Y-%m-%d %H:%M')})")
+    
+    print("\n🧪 Test 5: Adding more products and testing rotations...")
+    new_products = [("SKU110-Salt", 60), ("SKU90-Sugar", 80)]
+    
+    for sku, qty in new_products:
+        sm.root = sm.insert_product(sm.root, sku, qty)
+        print(f"✅ Added {sku} with quantity {qty}")
+    
+    print("🗑️ Removing SKU100-Rice...")
+    sm.root = sm.delete_product(sm.root, "SKU100-Rice")
+    
+    print("\n📋 Final inventory (tree remains balanced):")
+    sm.inorder(sm.root)
+    print()
+    
+    print("\n🧪 Test 6: Low stock alert (threshold = 20)...")
+    low_stock = sm.get_low_stock_products(sm.root, 20)
+    if low_stock:
+        print("⚠️ LOW STOCK ALERT:")
+        for sku, qty in low_stock:
+            print(f"  - {sku}: Only {qty} units left!")
+    else:
+        print("✅ All products have sufficient stock")
+    
+    print("\n🧪 Test 7: Simulating shipment arrival...")
+    shipment = [
+        ("SKU90-Sugar", 20),    
+        ("SKU300-Coffee", 100), 
+        ("SKU110-Salt", 40)     
+    ]
+    
+    for sku, qty in shipment:
+        existing = sm.search_product(sm.root, sku)
+        if existing:
+            sm.root = sm.update_product(sm.root, sku, qty)
+        else:
+            sm.root = sm.insert_product(sm.root, sku, qty)
+            print(f"🆕 New product added: {sku} with quantity {qty}")
+    
+    print("\n📋 Final inventory after shipment:")
+    sm.inorder(sm.root)
+    print()
+    
+    print("\n🎉 All tests completed! Tree remains balanced throughout operations.")
+
+if __name__ == "__main__":
+    test_supermarket_inventory()
