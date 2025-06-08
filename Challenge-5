@@ -1,0 +1,154 @@
+from collections import deque
+
+class TreeNode:
+    def __init__(self, val=0):
+        self.val = val
+        self.left = None
+        self.right = None
+        self.height = 1
+
+class AVLTree:
+    def get_height(self, node):
+        """Get height of a node"""
+        if not node:
+            return 0
+        return node.height
+    
+    def get_balance(self, node):
+        """Get balance factor of a node"""
+        if not node:
+            return 0
+        return self.get_height(node.left) - self.get_height(node.right)
+    
+    def update_height(self, node):
+        """Update height of a node"""
+        if node:
+            node.height = 1 + max(self.get_height(node.left), self.get_height(node.right))
+    
+    def rotate_right(self, y):
+        """Right rotation"""
+        x = y.left
+        T2 = x.right
+        
+        x.right = y
+        y.left = T2
+        
+        self.update_height(y)
+        self.update_height(x)
+        
+        return x
+    
+    def rotate_left(self, x):
+        """Left rotation"""
+        y = x.right
+        T2 = y.left
+        
+        y.left = x
+        x.right = T2
+        
+        self.update_height(x)
+        self.update_height(y)
+        
+        return y
+    
+    def insert(self, root, val):
+        """Insert a value into AVL tree"""
+        if not root:
+            return TreeNode(val)
+        
+        if val < root.val:
+            root.left = self.insert(root.left, val)
+        elif val > root.val:
+            root.right = self.insert(root.right, val)
+        else:
+            return root  
+        
+        self.update_height(root)
+        
+        balance = self.get_balance(root)
+        
+        if balance > 1 and val < root.left.val:
+            return self.rotate_right(root)
+        
+        if balance < -1 and val > root.right.val:
+            return self.rotate_left(root)
+        
+        if balance > 1 and val > root.left.val:
+            root.left = self.rotate_left(root.left)
+            return self.rotate_right(root)
+        
+        if balance < -1 and val < root.right.val:
+            root.right = self.rotate_right(root.right)
+            return self.rotate_left(root)
+        
+        return root
+    
+    def print_level_order(self, root):
+        """📡 Level-order print with heights"""
+        if not root:
+            return
+        
+        queue = deque([root])
+        
+        while queue:
+            level_size = len(queue)
+            level_nodes = []
+            
+            for _ in range(level_size):
+                node = queue.popleft()
+                level_nodes.append(f"{node.val}(h{node.height})")
+                
+                if node.left:
+                    queue.append(node.left)
+                if node.right:
+                    queue.append(node.right)
+            
+            print(", ".join(level_nodes))
+
+def test_level_order_heights():
+    print("🧪 Test 1: AVL tree [10, 5, 15]")
+    avl = AVLTree()
+    root = None
+    for val in [10, 5, 15]:
+        root = avl.insert(root, val)
+    avl.print_level_order(root)
+    print()
+    
+    print("🧪 Test 2: Larger AVL tree [10, 5, 15, 2, 7]")
+    avl = AVLTree()
+    root = None
+    for val in [10, 5, 15, 2, 7]:
+        root = avl.insert(root, val)
+    print("Expected output:")
+    print("# 10(h3)")
+    print("# 5(h2), 15(h1)")
+    print("# 2(h1), 7(h1)")
+    print("Actual output:")
+    avl.print_level_order(root)
+    print()
+    
+    print("🧪 Test 3: Unbalanced tree (regular BST)")
+    unbalanced = TreeNode(1)
+    unbalanced.left = TreeNode(2)
+    unbalanced.left.left = TreeNode(3)
+    unbalanced.height = 3
+    unbalanced.left.height = 2
+    unbalanced.left.left.height = 1
+    print("Unbalanced tree with misleading heights:")
+    avl.print_level_order(unbalanced)
+    print()
+    
+    print("🧪 Test 4: Empty tree")
+    avl.print_level_order(None)
+    print("(Empty tree prints nothing)")
+    print()
+    
+    print("🧪 Test 5: Tree with many levels")
+    avl = AVLTree()
+    root = None
+    for val in [50, 25, 75, 10, 30, 60, 80, 5, 15, 27, 35]:
+        root = avl.insert(root, val)
+    avl.print_level_order(root)
+
+if __name__ == "__main__":
+    test_level_order_heights()
