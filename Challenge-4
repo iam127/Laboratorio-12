@@ -1,0 +1,165 @@
+class AVLNode:
+    def __init__(self, val):
+        self.val = val
+        self.left = None
+        self.right = None
+        self.height = 1
+
+class AVLTree:
+    def get_height(self, node):
+        """Get height of a node (0 for None)"""
+        if not node:
+            return 0
+        return node.height
+    
+    def get_balance(self, node):
+        """Calculate balance factor of a node"""
+        if not node:
+            return 0
+        return self.get_height(node.left) - self.get_height(node.right)
+    
+    def is_avl_balanced(self, root):
+        """📏 Check if tree is AVL-balanced"""
+        def check_avl(node):
+            if not node:
+                return True, 0
+            
+            left_balanced, left_height = check_avl(node.left)
+            if not left_balanced:
+                return False, 0
+                
+            right_balanced, right_height = check_avl(node.right)
+            if not right_balanced:
+                return False, 0
+            
+            actual_height = 1 + max(left_height, right_height)
+            
+            if hasattr(node, 'height') and node.height != actual_height:
+                return False, 0
+            
+            balance_factor = left_height - right_height
+            
+            if abs(balance_factor) > 1:
+                return False, 0
+            
+            return True, actual_height
+        
+        balanced, _ = check_avl(root)
+        return balanced
+    
+    def insert(self, root, val):
+        """Insert a value and maintain AVL property"""
+        if not root:
+            return AVLNode(val)
+        
+        if val < root.val:
+            root.left = self.insert(root.left, val)
+        elif val > root.val:
+            root.right = self.insert(root.right, val)
+        else:
+            return root  
+        
+        root.height = 1 + max(self.get_height(root.left), 
+                             self.get_height(root.right))
+        
+        balance = self.get_balance(root)
+        
+        if balance > 1 and val < root.left.val:
+            return self.right_rotate(root)
+        
+        if balance < -1 and val > root.right.val:
+            return self.left_rotate(root)
+        
+        if balance > 1 and val > root.left.val:
+            root.left = self.left_rotate(root.left)
+            return self.right_rotate(root)
+        
+        if balance < -1 and val < root.right.val:
+            root.right = self.right_rotate(root.right)
+            return self.left_rotate(root)
+        
+        return root
+    
+    def left_rotate(self, z):
+        """Perform left rotation"""
+        y = z.right
+        T2 = y.left
+        
+        y.left = z
+        z.right = T2
+        
+        z.height = 1 + max(self.get_height(z.left), 
+                          self.get_height(z.right))
+        y.height = 1 + max(self.get_height(y.left), 
+                          self.get_height(y.right))
+        
+        return y
+    
+    def right_rotate(self, z):
+        """Perform right rotation"""
+        y = z.left
+        T3 = y.right
+        
+        y.right = z
+        z.left = T3
+        
+        z.height = 1 + max(self.get_height(z.left), 
+                          self.get_height(z.right))
+        y.height = 1 + max(self.get_height(y.left), 
+                          self.get_height(y.right))
+        
+        return y
+
+def test_is_avl_balanced():
+    avl = AVLTree()
+    
+    root = None
+    for val in [20, 10, 30]:
+        root = avl.insert(root, val)
+    print("🧪 Test 1 (Balanced tree):", avl.is_avl_balanced(root) == True)  # ✅
+    
+    unbalanced = AVLNode(10)
+    unbalanced.right = AVLNode(20)
+    unbalanced.right.right = AVLNode(30)
+    unbalanced.height = 3
+    unbalanced.right.height = 2
+    unbalanced.right.right.height = 1
+    print("🧪 Test 2 (Unbalanced tree):", avl.is_avl_balanced(unbalanced) == False)  # ⚠️
+    
+    print("🧪 Test 3 (Empty tree):", avl.is_avl_balanced(None) == True)  # 🌱
+    
+    deep_unbalanced = AVLNode(1)
+    deep_unbalanced.right = AVLNode(2)
+    deep_unbalanced.right.right = AVLNode(3)
+    deep_unbalanced.right.right.right = AVLNode(4)
+    deep_unbalanced.height = 4
+    deep_unbalanced.right.height = 3
+    deep_unbalanced.right.right.height = 2
+    deep_unbalanced.right.right.right.height = 1
+    print("🧪 Test 4 (Deep imbalance):", avl.is_avl_balanced(deep_unbalanced) == False)  # ❌
+    
+    complex_root = None
+    for val in [50, 25, 75, 10, 30, 60, 80, 5, 15, 27, 35]:
+        complex_root = avl.insert(complex_root, val)
+    print("🧪 Test 5 (Complex AVL tree):", avl.is_avl_balanced(complex_root) == True)  # ✅
+    
+    single_node = AVLNode(42)
+    print("🧪 Test 6 (Single node):", avl.is_avl_balanced(single_node) == True)  # ✅
+    
+    incorrect_height = AVLNode(10)
+    incorrect_height.left = AVLNode(5)
+    incorrect_height.right = AVLNode(15)
+    incorrect_height.height = 5 
+    incorrect_height.left.height = 1
+    incorrect_height.right.height = 1
+    print("🧪 Test 7 (Incorrect height):", avl.is_avl_balanced(incorrect_height) == False)  # ❌
+
+if __name__ == "__main__":
+    test_is_avl_balanced()
+    
+    print("\n📊 Summary:")
+    print("✅ The is_avl_balanced method checks:")
+    print("   • Balance factor is within [-1, 1] for every node")
+    print("   • Stored heights match calculated heights")
+    print("   • Recursively validates entire tree structure")
+    print("   • Handles edge cases (empty tree, single node)")
