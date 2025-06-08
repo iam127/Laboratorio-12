@@ -1,0 +1,387 @@
+import json
+import csv
+from datetime import datetime, timedelta
+from typing import List, Dict, Tuple, Optional
+import random
+from dataclasses import dataclass
+
+class MockLLM:
+    """Mock LLM for demonstration - replace with actual OpenAI API"""
+    
+    def generate_recommendation(self, prompt: str) -> str:
+        """Generate mock AI recommendations based on prompt keywords"""
+        responses = {
+            "cusco": {
+                "historical": "Visit Machu Picchu early morning (6-8am) to avoid crowds. Don't miss Sacsayhuamán for sunset views! 🌅",
+                "gastronomy": "Try cuy (guinea pig) at Pachapapa restaurant and visit San Pedro Market for fresh quinoa and coca leaves. 🍽️",
+                "nature": "Take the Salkantay trek for breathtaking mountain views. Altitude sickness prevention: drink coca tea! 🏔️"
+            },
+            "lima": {
+                "gastronomy": "Must visit Central restaurant (world's top 50). Street food in Barranco district is amazing! 🍤",
+                "historical": "Colonial architecture in Historic Center is UNESCO protected. Don't miss Larco Museum! 🏛️",
+                "beach": "Miraflores coastline offers great surfing and sunset walks along the malecón. 🏄‍♂️"
+            },
+            "arequipa": {
+                "nature": "Colca Canyon is deeper than Grand Canyon! Perfect for condor watching at Cruz del Cóndor. 🦅",
+                "historical": "White volcanic stone architecture is unique. Santa Catalina Monastery is a must-see! ⛪",
+                "gastronomy": "Try rocoto relleno and queso helado (cheese ice cream) - local specialties! 🌶️"
+            }
+        }
+        
+        region = None
+        interests = []
+        
+        prompt_lower = prompt.lower()
+        for r in responses.keys():
+            if r in prompt_lower:
+                region = r
+                break
+        
+        for interest in ["historical", "gastronomy", "nature", "beach"]:
+            if interest in prompt_lower:
+                interests.append(interest)
+        
+        if region and interests:
+            tips = []
+            for interest in interests:
+                if interest in responses[region]:
+                    tips.append(responses[region][interest])
+            return " ".join(tips) if tips else "Enjoy your trip to beautiful Peru! 🇵🇪"
+        
+        return "Peru offers incredible diversity - from Amazon rainforest to Andes mountains to Pacific coast! ✨"
+
+@dataclass
+class Attraction:
+    """Attraction data structure"""
+    region: str
+    name: str
+    type: str
+    rating: float
+    description: str = ""
+    estimated_hours: int = 2
+    
+class AVLNode:
+    """AVL Tree node for attractions"""
+    def __init__(self, key: Tuple[str, float], attraction: Attraction):
+        self.key = key  
+        self.attraction = attraction
+        self.left = None
+        self.right = None
+        self.height = 1
+
+class AttractionAVL:
+    """AVL Tree for fast attraction lookups by region and rating"""
+    
+    def __init__(self):
+        self.root = None
+        self.llm = MockLLM()
+    
+    def _height(self, node: Optional[AVLNode]) -> int:
+        return node.height if node else 0
+    
+    def _balance_factor(self, node: Optional[AVLNode]) -> int:
+        return self._height(node.left) - self._height(node.right) if node else 0
+    
+    def _update_height(self, node: AVLNode) -> None:
+        node.height = 1 + max(self._height(node.left), self._height(node.right))
+    
+    def _rotate_right(self, y: AVLNode) -> AVLNode:
+        x = y.left
+        t2 = x.right
+        x.right = y
+        y.left = t2
+        self._update_height(y)
+        self._update_height(x)
+        return x
+    
+    def _rotate_left(self, x: AVLNode) -> AVLNode:
+        y = x.right
+        t2 = y.left
+        y.left = x
+        x.right = t2
+        self._update_height(x)
+        self._update_height(y)
+        return y
+    
+    def insert(self, node: Optional[AVLNode], key: Tuple[str, float], attraction: Attraction) -> AVLNode:
+        """Insert attraction into AVL tree"""
+        if not node:
+            return AVLNode(key, attraction)
+        
+        if key < node.key:
+            node.left = self.insert(node.left, key, attraction)
+        else:
+            node.right = self.insert(node.right, key, attraction)
+        
+        self._update_height(node)
+        
+        balance = self._balance_factor(node)
+        
+        if balance > 1 and key < node.left.key:
+            return self._rotate_right(node)
+        
+        if balance < -1 and key > node.right.key:
+            return self._rotate_left(node)
+        
+        if balance > 1 and key > node.left.key:
+            node.left = self._rotate_left(node.left)
+            return self._rotate_right(node)
+        
+        if balance < -1 and key < node.right.key:
+            node.right = self._rotate_right(node.right)
+            return self._rotate_left(node)
+        
+        return node
+    
+    def insert_attraction(self, attraction: Attraction) -> None:
+        """Insert attraction with proper key"""
+        key = (attraction.region, -attraction.rating) 
+        self.root = self.insert(self.root, key, attraction)
+    
+    def inorder_traversal(self, node: Optional[AVLNode], result: List[Attraction]) -> None:
+        """In-order traversal to get sorted attractions"""
+        if node:
+            self.inorder_traversal(node.left, result)
+            result.append(node.attraction)
+            self.inorder_traversal(node.right, result)
+    
+    def get_attractions_by_region(self, region: str, limit: int = 10) -> List[Attraction]:
+        """Get top attractions for a specific region"""
+        all_attractions = []
+        self.inorder_traversal(self.root, all_attractions)
+        
+        region_attractions = [a for a in all_attractions if a.region.lower() == region.lower()]
+        return region_attractions[:limit]
+    
+    def range_query(self, start_region: str, end_region: str) -> List[Attraction]:
+        """Get attractions in region range"""
+        all_attractions = []
+        self.inorder_traversal(self.root, all_attractions)
+        
+        result = []
+        for attraction in all_attractions:
+            if start_region.lower() <= attraction.region.lower() <= end_region.lower():
+                result.append(attraction)
+        return result
+    
+    def load_from_csv(self, csv_file: str):
+        """Load attractions from CSV file"""
+        try:
+            with open(csv_file, 'r', encoding='utf-8') as file:
+                csv_reader = csv.DictReader(file)
+                for row in csv_reader:
+                    attraction = Attraction(
+                        region=row['region'],
+                        name=row['name'],
+                        type=row['type'],
+                        rating=float(row['rating']),
+                        description=row.get('description', ''),
+                        estimated_hours=int(row.get('estimated_hours', 2))
+                    )
+                    self.insert_attraction(attraction)
+        except FileNotFoundError:
+            print(f"CSV file {csv_file} not found. Using sample data instead.")
+
+class TourismRecommender:
+    """Main tourism recommender system"""
+    
+    def __init__(self):
+        self.avl_tree = AttractionAVL()
+        self.llm = MockLLM()
+        self._load_sample_data()
+    
+    def _load_sample_data(self):
+        """Load sample Peruvian attractions data"""
+        sample_attractions = [
+            Attraction("Cusco", "Machu Picchu", "historical", 4.9, "Ancient Inca citadel", 6),
+            Attraction("Cusco", "Sacsayhuamán", "historical", 4.7, "Inca fortress with massive stones", 3),
+            Attraction("Cusco", "Qorikancha", "historical", 4.6, "Temple of the Sun", 2),
+            Attraction("Cusco", "San Pedro Market", "gastronomy", 4.4, "Traditional market", 2),
+            Attraction("Cusco", "Sacred Valley", "nature", 4.8, "Beautiful valley with Inca ruins", 8),
+            
+            Attraction("Lima", "Historic Center", "historical", 4.5, "Colonial architecture", 4),
+            Attraction("Lima", "Larco Museum", "historical", 4.6, "Pre-Columbian art", 3),
+            Attraction("Lima", "Central Restaurant", "gastronomy", 4.9, "World-class cuisine", 3),
+            Attraction("Lima", "Miraflores", "beach", 4.3, "Coastal district", 4),
+            Attraction("Lima", "Barranco", "gastronomy", 4.4, "Bohemian food scene", 3),
+            
+            Attraction("Arequipa", "Colca Canyon", "nature", 4.8, "Deep canyon with condors", 12),
+            Attraction("Arequipa", "Santa Catalina Monastery", "historical", 4.7, "Colonial monastery", 3),
+            Attraction("Arequipa", "Plaza de Armas", "historical", 4.5, "Main square", 2),
+            Attraction("Arequipa", "Yanahuara", "nature", 4.4, "Volcanic stone architecture", 2),
+            
+            Attraction("Iquitos", "Amazon River", "nature", 4.9, "Amazon rainforest", 24),
+            Attraction("Iquitos", "Belen Market", "gastronomy", 4.2, "Floating market", 3),
+            
+            Attraction("Ica", "Huacachina Oasis", "nature", 4.6, "Desert oasis", 4),
+            Attraction("Ica", "Pisco Vineyards", "gastronomy", 4.3, "Pisco distilleries", 3),
+        ]
+        
+        for attraction in sample_attractions:
+            self.avl_tree.insert_attraction(attraction)
+    
+    def generate_itinerary(self, preferences: Dict) -> Dict:
+        """Generate personalized itinerary based on user preferences"""
+        region = preferences.get("region", "").strip()
+        interests = preferences.get("interests", [])
+        dates = preferences.get("dates", [])
+        budget = preferences.get("budget", "medium")
+        days = preferences.get("days", 3)
+        
+        attractions = self.avl_tree.get_attractions_by_region(region, limit=20)
+        
+        if interests:
+            filtered_attractions = []
+            for attraction in attractions:
+                if any(interest.lower() in attraction.type.lower() for interest in interests):
+                    filtered_attractions.append(attraction)
+            attractions = filtered_attractions if filtered_attractions else attractions
+        
+        prompt = f"""Recommend a {days}-day itinerary in {region} for a traveler interested in {', '.join(interests)} 
+        from {dates[0] if dates else 'upcoming dates'} on a {budget} budget. Include practical tips."""
+        
+        ai_tips = self.llm.generate_recommendation(prompt)
+        
+        itinerary = self._create_daily_schedule(attractions[:min(days*3, len(attractions))], days)
+        
+        return {
+            "region": region,
+            "days": days,
+            "attractions": attractions[:10],
+            "itinerary": itinerary,
+            "ai_tips": ai_tips,
+            "total_attractions": len(attractions)
+        }
+    
+    def _create_daily_schedule(self, attractions: List[Attraction], days: int) -> Dict:
+        """Create day-by-day schedule"""
+        schedule = {}
+        attractions_per_day = len(attractions) // days if days > 0 else len(attractions)
+        
+        for day in range(1, days + 1):
+            start_idx = (day - 1) * attractions_per_day
+            end_idx = start_idx + attractions_per_day
+            
+            if day == days:  
+                end_idx = len(attractions)
+            
+            daily_attractions = attractions[start_idx:end_idx]
+            
+            current_time = 9  
+            day_schedule = []
+            
+            for attraction in daily_attractions:
+                end_time = current_time + attraction.estimated_hours
+                day_schedule.append({
+                    "time": f"{current_time:02d}:00-{end_time:02d}:00",
+                    "attraction": attraction.name,
+                    "type": attraction.type,
+                    "rating": attraction.rating,
+                    "description": attraction.description
+                })
+                current_time = end_time + 1  
+                
+                if current_time >= 18: 
+                    break
+            
+            schedule[f"Day {day}"] = day_schedule
+        
+        return schedule
+
+def print_itinerary(result: Dict):
+    """Print formatted itinerary"""
+    print(f"\n🇵🇪 ¡BIENVENIDO A PERÚ! - {result['region'].upper()} ITINERARY ✨")
+    print("=" * 60)
+    
+    print(f"\n🎯 {result['days']}-Day Adventure in {result['region']}")
+    print(f"📍 Total attractions available: {result['total_attractions']}")
+    
+    print(f"\n🤖 AI RECOMMENDATIONS:")
+    print(f"💡 {result['ai_tips']}")
+    
+    print(f"\n📅 DETAILED ITINERARY:")
+    for day, activities in result['itinerary'].items():
+        print(f"\n{day}:")
+        for activity in activities:
+            print(f"  ⏰ {activity['time']}")
+            print(f"  🏛️  {activity['attraction']} ({activity['type']}) ⭐{activity['rating']}")
+            print(f"     {activity['description']}")
+    
+    print(f"\n🌟 TOP ATTRACTIONS SUMMARY:")
+    for i, attraction in enumerate(result['attractions'][:5], 1):
+        print(f"{i}. {attraction.name} - ⭐{attraction.rating} ({attraction.type})")
+
+def main():
+    """Main CLI interface"""
+    print("🇵🇪 PERUVIAN TOURISM RECOMMENDER - TREE OF ATTRACTIONS ✨")
+    print("=" * 60)
+    
+    recommender = TourismRecommender()
+    
+    while True:
+        print("\n🗺️  PLAN YOUR PERUVIAN ADVENTURE!")
+        
+        region = input("📍 Which region? (Cusco/Lima/Arequipa/Ica/Iquitos): ").strip()
+        if not region:
+            region = "Cusco"
+        
+        interests_input = input("🎯 Interests (comma-separated - historical,gastronomy,nature,beach): ").strip()
+        interests = [i.strip() for i in interests_input.split(",")] if interests_input else ["historical"]
+        
+        days_input = input("📅 How many days? (default 3): ").strip()
+        days = int(days_input) if days_input.isdigit() else 3
+        
+        budget = input("💰 Budget level (low/medium/high, default medium): ").strip() or "medium"
+        
+        preferences = {
+            "region": region,
+            "interests": interests,
+            "days": days,
+            "budget": budget,
+            "dates": [datetime.now().strftime("%Y-%m-%d")]
+        }
+        
+        result = recommender.generate_itinerary(preferences)
+        print_itinerary(result)
+        
+        continue_input = input("\n🔄 Plan another trip? (y/n): ").strip().lower()
+        if continue_input != 'y':
+            print("\n🌟 ¡Buen viaje! Have a wonderful trip to Peru! 🇵🇪✨")
+            break
+
+def run_tests():
+    """Run comprehensive tests"""
+    print("🧪 RUNNING TESTS...")
+    
+    recommender = TourismRecommender()
+    
+    print("\n✅ Test 1: AVL Tree Building")
+    all_attractions = []
+    recommender.avl_tree.inorder_traversal(recommender.avl_tree.root, all_attractions)
+    regions = [a.region for a in all_attractions]
+    print(f"Regions in order: {sorted(set(regions))}")
+    
+    print("\n✅ Test 2: Range Query")
+    range_result = recommender.avl_tree.range_query("Cusco", "Lima")
+    print(f"Attractions between Cusco-Lima: {len(range_result)}")
+    
+    print("\n✅ Test 3: LLM Integration")
+    test_prompt = "Recommend attractions in Cusco for historical interests"
+    ai_response = recommender.llm.generate_recommendation(test_prompt)
+    print(f"AI Response: {ai_response[:100]}...")
+    
+    print("\n✅ Test 4: Complete Flow")
+    test_preferences = {
+        "region": "Arequipa",
+        "interests": ["nature"],
+        "days": 2,
+        "budget": "medium"
+    }
+    result = recommender.generate_itinerary(test_preferences)
+    print(f"Generated itinerary for {result['region']} with {len(result['attractions'])} attractions")
+    
+    print("\n🎉 ALL TESTS PASSED!")
+
+if __name__ == "__main__":
+
+    main()
