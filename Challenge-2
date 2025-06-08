@@ -1,0 +1,136 @@
+class AVLNode:
+    def __init__(self, key):
+        self.key = key
+        self.left = None
+        self.right = None
+        self.height = 1
+
+class AVLTree:
+    def rotate_left(self, z):
+        """🔄 Perform left rotation on node z"""
+        y = z.right
+        
+        T2 = y.left
+        
+        y.left = z
+        z.right = T2
+        
+        z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))
+        y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
+        
+        return y
+    
+    def rotate_right(self, z):
+        """🔁 Perform right rotation on node z"""
+        y = z.left
+        
+        T3 = y.right
+        
+        y.right = z
+        z.left = T3
+        
+        z.height = 1 + max(self.get_height(z.left), self.get_height(z.right))
+        y.height = 1 + max(self.get_height(y.left), self.get_height(y.right))
+        
+        return y
+    
+    def get_height(self, node):
+        return node.height if node else 0
+
+def test_rotations():
+    tree = AVLTree()
+    
+    print("🔄 Testing AVL Tree Rotations")
+    print("=" * 40)
+    
+    print("\n🧪 Test 1: Left Rotation (RR case)")
+    z = AVLNode(10)
+    z.right = AVLNode(20)
+    z.right.right = AVLNode(30)
+    
+    z.right.right.height = 1
+    z.right.height = 2
+    z.height = 3
+    
+    print(f"Before rotation: Root={z.key}, Right={z.right.key}, Right-Right={z.right.right.key}")
+    
+    z = tree.rotate_left(z)
+    
+    print(f"After rotation: Root={z.key}, Left={z.left.key}, Right={z.right.key}")
+    print(f"✅ Test 1 Pass: {z.key == 20 and z.left.key == 10 and z.right.key == 30}")
+    
+    print("\n🧪 Test 2: Right Rotation (LL case)")
+    z = AVLNode(30)
+    z.left = AVLNode(20)
+    z.left.left = AVLNode(10)
+    
+    z.left.left.height = 1
+    z.left.height = 2
+    z.height = 3
+    
+    print(f"Before rotation: Root={z.key}, Left={z.left.key}, Left-Left={z.left.left.key}")
+    
+    z = tree.rotate_right(z)
+    
+    print(f"After rotation: Root={z.key}, Left={z.left.key}, Right={z.right.key}")
+    print(f"✅ Test 2 Pass: {z.key == 20 and z.left.key == 10 and z.right.key == 30}")
+    
+    print("\n🧪 Test 3: Height Updates")
+    print(f"Root height: {z.height}")
+    print(f"Left child height: {z.left.height}")
+    print(f"Right child height: {z.right.height}")
+    heights_correct = (z.height == 2 and z.left.height == 1 and z.right.height == 1)
+    print(f"✅ Test 3 Pass: {heights_correct}")
+    
+    print("\n🧪 Test 4: Children Structure Preservation")
+    root = AVLNode(5)
+    root.right = AVLNode(10)
+    root.right.left = AVLNode(8)  
+    root.right.right = AVLNode(15)
+    
+    root.right.left.height = 1
+    root.right.right.height = 1
+    root.right.height = 2
+    root.height = 3
+    
+    print(f"Before: Root={root.key}, Right={root.right.key}, Right-Left={root.right.left.key}")
+    
+    root = tree.rotate_left(root)
+    
+    print(f"After: Root={root.key}, Left={root.left.key}, Left-Right={root.left.right.key if root.left.right else 'None'}")
+    children_preserved = (root.key == 10 and root.left.key == 5 and 
+                         root.left.right and root.left.right.key == 8)
+    print(f"✅ Test 4 Pass: {children_preserved}")
+    
+    print("\n🧪 Test 5: Integration with Insertion Logic")
+    
+    def get_balance(node):
+        if not node:
+            return 0
+        return tree.get_height(node.left) - tree.get_height(node.right)
+    
+    root = AVLNode(1)
+    root.right = AVLNode(2)
+    root.right.right = AVLNode(3)
+    
+    root.right.right.height = 1
+    root.right.height = 2
+    root.height = 3
+    
+    balance = get_balance(root)
+    print(f"Balance factor before rotation: {balance}")
+    
+    if balance < -1 and get_balance(root.right) <= 0:
+        root = tree.rotate_left(root)
+        print("Applied left rotation for RR case")
+    
+    final_balance = get_balance(root)
+    print(f"Balance factor after rotation: {final_balance}")
+    print(f"Tree structure: [{root.left.key}, {root.key}, {root.right.key}]")
+    
+    integration_pass = (abs(final_balance) <= 1 and root.key == 2)
+    print(f"✅ Test 5 Pass: {integration_pass}")
+    
+    print(f"\n🎉 All tests completed!")
+
+test_rotations()
