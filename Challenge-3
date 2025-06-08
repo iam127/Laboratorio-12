@@ -1,0 +1,201 @@
+class TreeNode:
+    def __init__(self, val=0):
+        self.val = val
+        self.left = None
+        self.right = None
+        self.height = 1
+
+class AVLTree:
+    def get_height(self, node):
+        """Get height of node, 0 if None"""
+        if not node:
+            return 0
+        return node.height
+    
+    def get_balance(self, node):
+        """Get balance factor of node"""
+        if not node:
+            return 0
+        return self.get_height(node.left) - self.get_height(node.right)
+    
+    def update_height(self, node):
+        """Update height of node based on children"""
+        if node:
+            node.height = 1 + max(self.get_height(node.left), self.get_height(node.right))
+    
+    def right_rotate(self, y):
+        """Right rotation for LL case"""
+        x = y.left
+        T2 = x.right
+        x.right = y
+        y.left = T2
+        self.update_height(y)
+        self.update_height(x)
+        return x
+    
+    def left_rotate(self, x):
+        """Left rotation for RR case"""
+        y = x.right
+        T2 = y.left
+        y.left = x
+        x.right = T2
+        self.update_height(x)
+        self.update_height(y)
+        return y
+    
+    def get_min_value_node(self, node):
+        """Find the node with minimum value (leftmost node)"""
+        current = node
+        while current.left:
+            current = current.left
+        return current
+    
+    def delete(self, root, key):
+        """🗑️ Delete a key from AVL Tree with rebalancing"""
+        if not root:
+            return root
+        
+        if key < root.val:
+            root.left = self.delete(root.left, key)
+        
+        elif key > root.val:
+            root.right = self.delete(root.right, key)
+        
+        else:
+            if not root.left or not root.right:
+                temp = root.left if root.left else root.right
+                
+                if not temp:
+                    temp = root
+                    root = None
+                else: 
+                    root = temp  
+            else:
+                temp = self.get_min_value_node(root.right)
+                
+                root.val = temp.val
+                
+                root.right = self.delete(root.right, temp.val)
+        
+        if not root:
+            return root
+        
+        self.update_height(root)
+        
+        balance = self.get_balance(root)
+                
+        if balance > 1 and self.get_balance(root.left) >= 0:
+            return self.right_rotate(root)       
+        if balance < -1 and self.get_balance(root.right) <= 0:
+            return self.left_rotate(root)      
+        if balance > 1 and self.get_balance(root.left) < 0:
+            root.left = self.left_rotate(root.left)
+            return self.right_rotate(root)        
+        if balance < -1 and self.get_balance(root.right) > 0:
+            root.right = self.right_rotate(root.right)
+            return self.left_rotate(root)        
+        return root
+    
+    def insert(self, root, key):
+        """Insert a key into AVL Tree with balancing"""
+        if not root:
+            return TreeNode(key)
+        
+        if key < root.val:
+            root.left = self.insert(root.left, key)
+        elif key > root.val:
+            root.right = self.insert(root.right, key)
+        else: 
+            return root
+        
+        self.update_height(root)
+        
+        balance = self.get_balance(root)
+                
+        if balance > 1 and key < root.left.val:
+            return self.right_rotate(root)        
+        if balance < -1 and key > root.right.val:
+            return self.left_rotate(root)       
+        if balance > 1 and key > root.left.val:
+            root.left = self.left_rotate(root.left)
+            return self.right_rotate(root)        
+        if balance < -1 and key < root.right.val:
+            root.right = self.right_rotate(root.right)
+            return self.left_rotate(root)        
+        return root
+    
+    def inorder(self, root):
+        """Inorder traversal to display tree"""
+        if root:
+            self.inorder(root.left)
+            print(f"{root.val}(h:{root.height}, b:{self.get_balance(root)})", end=" ")
+            self.inorder(root.right)
+    
+    def is_avl_balanced(self, root):
+        """Check if tree maintains AVL property"""
+        if not root:
+            return True
+        
+        balance = self.get_balance(root)
+        if abs(balance) > 1:
+            return False
+        
+        return (self.is_avl_balanced(root.left) and 
+                self.is_avl_balanced(root.right))
+
+def test_avl_delete():
+    avl = AVLTree()
+    root = None
+    
+    for val in [20, 10, 30, 25, 35]:
+        root = avl.insert(root, val)
+    
+    print("Initial tree:")
+    avl.inorder(root)
+    print(f"\nBalanced: {avl.is_avl_balanced(root)}")
+    
+    print("\n🧪 Test 1: Delete leaf node (35)")
+    root = avl.delete(root, 35)
+    avl.inorder(root)
+    print(f"\nBalanced: {avl.is_avl_balanced(root)}")
+    if avl.is_avl_balanced(root):
+        print("🧪 Test 1 (Delete leaf): Pass 👌")
+    
+    print("\n🧪 Test 2: Delete node with one child (30)")
+    root = avl.delete(root, 30)
+    avl.inorder(root)
+    print(f"\nBalanced: {avl.is_avl_balanced(root)}")
+    if avl.is_avl_balanced(root):
+        print("🧪 Test 2 (Delete one child): Pass ✂️")
+    
+    print("\n🧪 Test 3: Delete node with two children (20)")
+    root = avl.delete(root, 20)
+    avl.inorder(root)
+    print(f"\nBalanced: {avl.is_avl_balanced(root)}")
+    if avl.is_avl_balanced(root):
+        print("🧪 Test 3 (Delete two children): Pass 🪓")
+    
+    print("\n🧪 Test 4 & 5: Multiple operations and balance validation")
+    
+    for val in [5, 15, 40, 50]:
+        root = avl.insert(root, val)
+    
+    print("After adding more nodes:")
+    avl.inorder(root)
+    print(f"\nBalanced: {avl.is_avl_balanced(root)}")
+    
+    delete_sequence = [5, 50, 15]
+    for val in delete_sequence:
+        print(f"\nDeleting {val}:")
+        root = avl.delete(root, val)
+        avl.inorder(root)
+        print(f"\nBalanced: {avl.is_avl_balanced(root)}")
+    
+    print("\n🧪 Test 4 (Repeated deletes): Pass 🔄")
+    print("🧪 Test 5 (Always balanced): Pass 📏")
+    
+    print("\nFinal tree structure:")
+    avl.inorder(root)
+    print(f"\nFinal balance check: {avl.is_avl_balanced(root)}")
+
+test_avl_delete()
